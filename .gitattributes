@@ -1,0 +1,17 @@
+# Normalize line endings. Shell scripts and node CJS helpers MUST stay LF
+# so they run correctly inside the Linux Docker containers.
+* text=auto
+*.sh        text eol=lf
+*.cjs       text eol=lf
+*.sql       text eol=lf
+Dockerfile  text eol=lf
+docker-entrypoint.sh text eol=lf
+
+# Windows batch files stay CRLF
+*.bat       text eol=crlf
+
+# Binary
+*.pdf       binary
+*.jpeg      binary
+*.jpg       binary
+*.png       binary

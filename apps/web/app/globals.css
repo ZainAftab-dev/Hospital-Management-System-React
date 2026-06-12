@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 210 20% 98%;
+  --foreground: 215 25% 18%;
+  --muted: 210 18% 94%;
+  --muted-foreground: 215 12% 42%;
+  --accent: 207 42% 92%;
+  --accent-foreground: 209 48% 24%;
+  --primary: 208 36% 50%;
+  --primary-foreground: 0 0% 100%;
+  --destructive: 0 62% 44%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 214 16% 78%;
+  --input: 214 16% 78%;
+  --ring: 208 36% 48%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: Arial, Helvetica, sans-serif;
+  letter-spacing: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.clinical-panel {
+  border: 1px solid hsl(var(--border));
+  background: white;
+}
+
+.data-grid {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 13px;
+}
+
+.data-grid th {
+  background: #f2f5f8;
+  border: 1px solid #c6ced8;
+  padding: 7px 8px;
+  text-align: left;
+  font-weight: 700;
+  color: #263440;
+}
+
+.data-grid td {
+  border: 1px solid #c6ced8;
+  padding: 6px 8px;
+  vertical-align: middle;
+}
+
+.data-grid tbody tr:hover {
+  background: #edf4fb;
+}
+
+.data-grid tbody tr[data-selected='true'] {
+  background: #2f7dca;
+  color: white;
+}

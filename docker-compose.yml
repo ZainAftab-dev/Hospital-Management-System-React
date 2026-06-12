@@ -1,0 +1,53 @@
+# ============================================================
+#  ZM Hospital Management System — full stack in Docker
+#  Run everything with:   docker compose up --build
+#  Then open:             http://localhost:3000
+# ============================================================
+
+services:
+  # ---- SQL Server database ----
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: hms-db
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${DB_SA_PASSWORD:-HmsStrong2026!Db}"
+      MSSQL_PID: "Developer"        # free edition, fine for demos/production-lite
+    volumes:
+      - mssql-data:/var/opt/mssql   # data survives container restarts
+    # Port 1433 is intentionally NOT published to the host, so it never
+    # clashes with a SQL Server the client may already have installed.
+    restart: unless-stopped
+
+  # ---- NestJS API (auth, business logic, Prisma) ----
+  api:
+    build: ./apps/api
+    container_name: hms-api
+    environment:
+      DATABASE_URL: "sqlserver://db:1433;database=zm_hospital;user=sa;password=${DB_SA_PASSWORD:-HmsStrong2026!Db};encrypt=true;trustServerCertificate=true"
+      JWT_SECRET: "${JWT_SECRET:-please-change-this-to-a-long-random-secret-0987654321}"
+      WEB_ORIGIN: "http://localhost:3000"
+      API_PORT: "4000"
+    depends_on:
+      - db
+    ports:
+      - "4000:4000"
+    restart: unless-stopped
+
+  # ---- Next.js web frontend ----
+  web:
+    build:
+      context: ./apps/web
+      args:
+        NEXT_PUBLIC_API_BASE_URL: "http://localhost:4000/api"
+    container_name: hms-web
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: "http://localhost:4000/api"
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  mssql-data:

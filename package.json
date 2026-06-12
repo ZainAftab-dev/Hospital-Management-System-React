@@ -1,0 +1,40 @@
+{
+  "name": "zm-hospital-management-system",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:web\" \"npm run dev:api\"",
+    "dev:web": "npm --workspace apps/web run dev",
+    "dev:api": "npm --workspace apps/api run start:dev",
+    "build": "npm --workspace apps/web run build && npm --workspace apps/api run build",
+    "lint": "npm --workspaces run lint",
+    "typecheck": "npm --workspaces run typecheck",
+    "prisma:generate": "npm --workspace apps/api run prisma:generate",
+    "prisma:migrate": "npm --workspace apps/api run prisma:migrate",
+    "seed": "npm --workspace apps/api run seed"
+  },
+  "workspaces": [
+    "apps/web",
+    "apps/api"
+  ],
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^3.10.0",
+    "@nestjs/common": "^10.4.22",
+    "@nestjs/core": "^10.4.22",
+    "@nestjs/jwt": "^10.2.0",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@tanstack/react-table": "^8.21.3",
+    "bcryptjs": "^2.4.3",
+    "fast-check": "^4.7.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
+    "lucide-react": "^0.468.0",
+    "pure-rand": "^8.4.0",
+    "react": "^19.2.6",
+    "react-hook-form": "^7.75.0",
+    "zod": "^3.25.76"
+  }
+}

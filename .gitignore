@@ -1,0 +1,24 @@
+# v0 runtime files
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+
+# Common ignores
+node_modules
+.next/
+dist/
+*.tsbuildinfo
+.DS_Store
+
+# Environment / secrets (defaults live safely inside docker-compose.yml)
+.env
+.env.local
+.env*.local
+**/.env
+!**/.env.example
+
+# Logs
+*.log
+
+# Blocked by Windows Defender (false positive); START_HMS.bat covers the same task
+START_HMS.ps1

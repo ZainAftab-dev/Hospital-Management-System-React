@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid()) @db.NVarChar(191)
+  name         String   @db.NVarChar(191)
+  email        String   @unique @db.NVarChar(191)
+  passwordHash String   @db.NVarChar(191)
+  role         String   @db.NVarChar(50)
+  phone        String?  @db.NVarChar(100)
+  department   String?  @db.NVarChar(191)
+  status       String   @default("Active") @db.NVarChar(50)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Patient {
+  id               String        @id @db.NVarChar(191)
+  name             String        @db.NVarChar(191)
+  age              Int
+  gender           String        @db.NVarChar(50)
+  contact          String        @db.NVarChar(100)
+  email            String?       @db.NVarChar(191)
+  address          String?       @db.NVarChar(500)
+  disease          String?       @db.NVarChar(191)
+  bloodGroup       String?       @db.NVarChar(20)
+  allergies        String?       @db.NVarChar(500)
+  emergencyContact String?       @db.NVarChar(191)
+  emergencyPhone   String?       @db.NVarChar(100)
+  photoUrl         String?       @db.NVarChar(Max)
+  status           String        @default("Stable") @db.NVarChar(50)
+  invoices         Invoice[]
+  dispensations    Dispensation[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  appointments     Appointment[]
+}
+
+model Doctor {
+  id              String   @id @db.NVarChar(191)
+  name            String   @db.NVarChar(191)
+  age             Int
+  gender          String   @db.NVarChar(50)
+  contact         String   @db.NVarChar(100)
+  email           String?  @db.NVarChar(191)
+  address         String?  @db.NVarChar(500)
+  specialization  String   @db.NVarChar(191)
+  qualification   String   @db.NVarChar(191)
+  availability    String   @default("yes") @db.NVarChar(20)
+  consultationFee String   @db.NVarChar(50)
+  licenseNumber   String?  @db.NVarChar(100)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  appointments    Appointment[]
+}
+
+model Appointment {
+  id        String   @id @db.NVarChar(191)
+  patientId String   @db.NVarChar(191)
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  doctorId  String   @db.NVarChar(191)
+  doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  date      DateTime
+  time      String   @db.NVarChar(20)
+  status    String   @default("Pending") @db.NVarChar(50)
+  type      String   @default("In-Person") @db.NVarChar(50)
+  notes     String?  @db.NVarChar(500)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Medicine {
+  id             String    @id @db.NVarChar(191)
+  name           String    @db.NVarChar(191)
+  manufacturer   String    @db.NVarChar(191)
+  category       String    @db.NVarChar(191)
+  priceCents     Int
+  quantity       Int
+  reorderLevel   Int       @default(20)
+  description    String?   @db.NVarChar(500)
+  expiryDate     DateTime?
+  batchNumber    String?   @db.NVarChar(100)
+  unit           String?   @db.NVarChar(50)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  dispensedItems DispensationItem[]
+}
+
+model Invoice {
+  id            String        @id @default(cuid()) @db.NVarChar(191)
+  invoiceNo     String        @unique @db.NVarChar(191)
+  patientId     String        @db.NVarChar(191)
+  patient       Patient       @relation(fields: [patientId], references: [id])
+  status        String        @default("UNPAID") @db.NVarChar(50)
+  subtotalCents Int           @default(0)
+  discountCents Int           @default(0)
+  taxCents      Int           @default(0)
+  totalCents    Int           @default(0)
+  paymentMode   String?       @db.NVarChar(50)
+  items         InvoiceItem[]
+  dispensations Dispensation[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model InvoiceItem {
+  id            String  @id @default(cuid()) @db.NVarChar(191)
+  invoiceId     String  @db.NVarChar(191)
+  invoice       Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description   String  @db.NVarChar(500)
+  quantity      Int
+  unitPriceCents Int
+  amountCents   Int
+  sourceType    String  @db.NVarChar(100)
+  sourceId      String? @db.NVarChar(191)
+}
+
+model Dispensation {
+  id          String             @id @default(cuid()) @db.NVarChar(191)
+  patientId   String             @db.NVarChar(191)
+  patient     Patient            @relation(fields: [patientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  invoiceId   String?            @db.NVarChar(191)
+  invoice     Invoice?           @relation(fields: [invoiceId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  pharmacistId String             @db.NVarChar(191)
+  items       DispensationItem[]
+  totalCents  Int
+  createdAt   DateTime           @default(now())
+}
+
+model DispensationItem {
+  id             String       @id @default(cuid()) @db.NVarChar(191)
+  dispensationId String       @db.NVarChar(191)
+  dispensation   Dispensation @relation(fields: [dispensationId], references: [id], onDelete: Cascade)
+  medicineId     String       @db.NVarChar(191)
+  medicine       Medicine     @relation(fields: [medicineId], references: [id])
+  quantity       Int
+  dosage         String       @db.NVarChar(100)
+  frequency      String       @db.NVarChar(100)
+  duration       String       @db.NVarChar(100)
+  unitPriceCents Int
+  lineTotalCents Int
+}

@@ -1,0 +1,2 @@
+-- No-op migration kept so Prisma can read the historical migration folder.
+-- The active database schema is created by 20260511230000_init_sqlserver.
