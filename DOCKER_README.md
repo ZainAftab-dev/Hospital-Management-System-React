@@ -109,18 +109,18 @@ SQL Server runs under emulation. It works but starts a little slower.
 
 ---
 
-## Going to production (optional)
+## Going to production
 
-Before any real deployment, edit **`.env`** and set:
-- a strong, unique `DB_SA_PASSWORD`
-- a long random `JWT_SECRET`
+This `docker-compose.yml` setup is for **local development only** — it's
+not how the live version of this app is actually hosted. SQL Server
+needs ~2 GB RAM to boot, more than most low-cost container hosts give a
+single service, so production splits the three layers across dedicated
+platforms instead: **Vercel** (web), **Railway** (API), and **Azure SQL
+Database** (the database itself).
 
-To deploy on a server (not just localhost), rebuild the web image with
-the public API URL:
-```bash
-docker compose build --build-arg NEXT_PUBLIC_API_BASE_URL=https://api.yourdomain.com/api web
-```
-and update `WEB_ORIGIN` for the API accordingly.
+See the **☁️ Live Deployment** section in [README.md](README.md) for
+the real production architecture, required environment variables, and
+steps to deploy your own copy the same way.
 
 ---
 

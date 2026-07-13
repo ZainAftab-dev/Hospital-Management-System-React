@@ -15,7 +15,12 @@ Manage patients, doctors, appointments, pharmacy, billing and analytics — all 
 ![SQL Server](https://img.shields.io/badge/SQL%20Server-2022-CC2927?style=for-the-badge&logo=microsoftsqlserver&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-Frontend-000000?style=for-the-badge&logo=vercel&logoColor=white)
+![Railway](https://img.shields.io/badge/Railway-API-0B0D0E?style=for-the-badge&logo=railway&logoColor=white)
+![Azure SQL](https://img.shields.io/badge/Azure%20SQL-Database-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+
+**🔗 Live app:** [hospital-management-system-react-ap.vercel.app](https://hospital-management-system-react-ap.vercel.app)
 
 </div>
 
@@ -25,7 +30,11 @@ Manage patients, doctors, appointments, pharmacy, billing and analytics — all 
 
 ZM HMS is a complete hospital operations platform built with a modern, decoupled architecture: a **Next.js / React** frontend, a **NestJS REST API** with JWT authentication and role-based access control, and a **Microsoft SQL Server** database managed through **Prisma ORM**.
 
-Every staff role — Admin, Doctor, Receptionist, Pharmacist and General Staff — sees only the modules and actions they're permitted to use. The entire stack runs with a **single command** thanks to Docker Compose, automatically seeding a realistic hospital dataset on first launch.
+Every staff role — Admin, Doctor, Receptionist, Pharmacist and General Staff — sees only the modules and actions they're permitted to use.
+
+Two ways to run it:
+- **Locally**, the entire stack runs with a **single Docker command**, automatically seeding a realistic hospital dataset on first launch.
+- **In production**, the three layers are deployed independently — see [☁️ Live Deployment](#️-live-deployment) below.
 
 ---
 
@@ -51,7 +60,9 @@ Every staff role — Admin, Doctor, Receptionist, Pharmacist and General Staff �
 - **Doctor scheduling conflict detection** — duplicate appointment time rejected with 409 Conflict
 - **Comprehensive input validation** — DTO whitelisting, `MaxLength` on every free-text field, format checks (HH:MM time, URL pattern, currency format)
 - **DB-level CHECK constraints** — valid statuses, non-negative amounts, allowed payment modes enforced at the database layer
-- **CORS locked** to the configured web origin; `credentials: true` for cross-port cookie forwarding
+- **CORS locked** to the configured web origin (never `*`); `credentials: true` for cross-origin cookie forwarding
+- **Cookie attributes adapt to environment** — `SameSite=None; Secure` in production (frontend and API live on different domains), `SameSite=Lax` in local dev (same-origin, plain HTTP)
+- **`JWT_SECRET` is required, not optional** — the API refuses to boot rather than silently falling back to an insecure default
 
 ---
 
@@ -71,11 +82,12 @@ Every staff role — Admin, Doctor, Receptionist, Pharmacist and General Staff �
 - Views, triggers, stored procedures, indexes & CHECK constraints
 
 **DevOps**
-- Docker & Docker Compose (3-service stack)
+- Docker & Docker Compose (3-service stack) for local development
+- Vercel · Railway · Azure SQL Database for the live deployment (see below)
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Architecture (Local / Docker Compose)
 
 ```mermaid
 flowchart LR
@@ -94,6 +106,51 @@ The frontend never talks to the database directly — all data flows through the
 
 ---
 
+## ☁️ Live Deployment
+
+Production doesn't use Docker Compose — each layer is hosted independently, since a NestJS server and a real SQL Server instance aren't things a frontend-only host like Vercel can run:
+
+```mermaid
+flowchart LR
+    A[Browser] -->|HTTPS| B["Next.js Web<br/>Vercel<br/>(Root Directory: apps/web)"]
+    B -->|REST + cross-site cookie JWT| C["NestJS API<br/>Railway<br/>(Root Directory: apps/api)"]
+    C -->|Prisma ORM, TLS| D[(Azure SQL Database<br/>zm_hospital)]
+```
+
+| Layer | Host | Why |
+|-------|------|-----|
+| **Web** (`apps/web`) | [Vercel](https://vercel.com) | Purpose-built Next.js hosting; only ever runs the frontend as serverless functions |
+| **API** (`apps/api`) | [Railway](https://railway.app) | NestJS needs a persistent, always-on process — something serverless hosting can't provide |
+| **Database** | [Azure SQL Database](https://azure.microsoft.com/products/azure-sql/database) | Managed Microsoft SQL Server — self-hosting the real engine needs ~2 GB RAM, more than typical low-cost container plans allow |
+
+### Environment variables that wire it together
+
+**Vercel project → Settings → Environment Variables**
+```
+NEXT_PUBLIC_API_BASE_URL=https://<your-api>.up.railway.app/api
+```
+
+**Railway `api` service → Variables**
+```
+DATABASE_URL=sqlserver://<server>.database.windows.net:1433;database=zm_hospital;user=<user>;password=<password>;encrypt=true;trustServerCertificate=false
+JWT_SECRET=<long random string — required, the API refuses to boot without it>
+WEB_ORIGIN=https://<your-frontend>.vercel.app
+API_PORT=4000
+NODE_ENV=production
+```
+
+`NODE_ENV=production` specifically controls the auth cookie's `SameSite`/`Secure` flags (see [Security & Access Control](#-security--access-control)) — without it, login will appear to succeed but the session cookie won't survive the redirect, since the frontend and API are on different domains in this topology.
+
+### Deploying this yourself
+1. **Vercel**: import the repo, set **Root Directory** to `apps/web` (Vercel then auto-detects Next.js and installs from the monorepo root automatically).
+2. **Railway**: new project from the same repo, one service with **Root Directory** `apps/api`, Builder set to use `apps/api/Dockerfile` (it already handles DB bootstrap, schema push, seeding, and starting the API in the right order — see `apps/api/docker-entrypoint.sh`).
+3. **Database**: create an Azure SQL Database (the free tier is enough), add a firewall rule allowing Railway's traffic, then run once against it: `npx prisma db push`, `npx tsx prisma/seed.ts`, `node prisma/seed-users.cjs`, `node add-constraints.js`, `node docker/apply-db-objects.cjs` (all from `apps/api`, with `DATABASE_URL` pointed at Azure).
+4. Set the environment variables above on each service, then redeploy both.
+
+A quick way to confirm the API is actually reachable and connected: `GET /api/health` returns `{"status":"ok"}` regardless of the database, while `GET /api/patients` (expect a `401 Unauthorized`, not a `500`) confirms the database connection itself is working.
+
+---
+
 ## 🗄️ Database Engineering Highlights
 
 This isn't just CRUD on top of tables — the schema includes real relational database engineering:
@@ -108,7 +165,9 @@ This isn't just CRUD on top of tables — the schema includes real relational da
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Getting Started (local development)
+
+> These options run the whole stack on your own machine. For how it's actually hosted live, see [☁️ Live Deployment](#️-live-deployment).
 
 ### Option A — Docker (recommended, one command)
 
@@ -170,11 +229,12 @@ npm run dev
 │   │   └── lib/             # API client, PDF utils, error boundary
 │   └── api/                 # NestJS backend
 │       ├── src/             # Auth, patients, doctors, appointments,
-│       │                    #   pharmacy, billing, users modules
+│       │                    #   pharmacy, billing, users, health modules
 │       ├── prisma/          # Schema, migrations, seed data
-│       └── docker/          # DB bootstrap & object scripts
-├── docker-compose.yml       # 3-service stack (db + api + web)
-├── DOCKER_README.md         # Docker startup guide
+│       ├── docker/          # DB bootstrap & object scripts
+│       └── Dockerfile       # Used by Railway to build/run the API in production
+├── docker-compose.yml       # 3-service stack (db + api + web) — local dev only
+├── DOCKER_README.md         # Docker startup guide (local dev)
 ├── START_DOCKER.bat         # One-click Docker launcher (Windows)
 ├── STOP_DOCKER.bat          # One-click Docker stop (Windows)
 ├── START_HMS.bat            # Local (non-Docker) launcher — starts built API + web
