@@ -1,8 +1,8 @@
 import { HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { compare } from 'bcryptjs';
 import { PrismaService } from '../common/prisma.service';
+import { JWT_SECRET } from './jwt-secret';
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
@@ -18,8 +18,7 @@ export class AuthService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly jwt: JwtService,
-    private readonly config: ConfigService
+    private readonly jwt: JwtService
   ) {
     // Evict expired rate-limit buckets every 5 minutes to prevent memory growth
     const interval = setInterval(() => {
@@ -49,7 +48,7 @@ export class AuthService {
     const token = await this.jwt.signAsync(
       { sub: user.id, email: user.email, role: user.role, name: user.name },
       {
-        secret: this.config.get<string>('JWT_SECRET') ?? 'development-secret',
+        secret: JWT_SECRET,
         expiresIn: '8h'
       }
     );
