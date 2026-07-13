@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "scripts": {
     "start:dev": "nest start --watch",
-    "build": "nest build",
+    "build": "prisma generate && nest build",
+    "start:prod": "node dist/src/main",
     "lint": "eslint \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
