@@ -20,6 +20,13 @@ type LoginRequest = {
 
 const COOKIE_NAME = 'hms_token';
 const COOKIE_MAX_AGE_MS = 8 * 60 * 60 * 1000;
+const CROSS_SITE = process.env.NODE_ENV === 'production';
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  sameSite: CROSS_SITE ? ('none' as const) : ('lax' as const),
+  secure: CROSS_SITE,
+  path: '/'
+};
 
 @Controller('auth')
 export class AuthController {
@@ -35,10 +42,8 @@ export class AuthController {
     const ip = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor ?? request.ip ?? 'unknown';
     const result = await this.auth.login(body.email, body.password, ip);
     res.cookie(COOKIE_NAME, result.accessToken, {
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: COOKIE_MAX_AGE_MS,
-      path: '/'
+      ...COOKIE_OPTIONS,
+      maxAge: COOKIE_MAX_AGE_MS
     });
     return { user: result.user };
   }
@@ -46,7 +51,7 @@ export class AuthController {
   @Post('logout')
   @HttpCode(200)
   logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie(COOKIE_NAME, { path: '/' });
+    res.clearCookie(COOKIE_NAME, COOKIE_OPTIONS);
     return { success: true };
   }
 
