@@ -15,17 +15,25 @@ type DispensePayload = {
 };
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== 'undefined' ? window.localStorage.getItem('authToken') : undefined;
   const headers = new Headers(options.headers);
   headers.set('Content-Type', 'application/json');
-  if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+      credentials: 'include'
+    });
+  } catch {
+    throw new Error('Cannot connect to the HMS API. Please start the API server on port 4000, then try again.');
+  }
 
   if (!response.ok) {
+    if (response.status === 401 && typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+      window.location.href = '/login';
+      throw new Error('Session expired. Please log in again.');
+    }
     const text = await response.text();
     let human = text;
     try {
@@ -207,10 +215,14 @@ function userToApi(user: Partial<HospitalUser>) {
 
 export const hospitalApi = {
   login: (email: string, password: string) =>
-    request<{ accessToken: string; user: { id: string; name: string; role: string } }>('/auth/login', {
+    request<{ user: { id: string; name: string; role: string } }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password })
     }),
+  logout: () =>
+    request<{ success: boolean }>('/auth/logout', { method: 'POST' }),
+  me: () =>
+    request<{ id: string; name: string; role: string; email: string }>('/auth/me'),
   patients: () => request<Patient[]>('/patients'),
   createPatient: (patient: Patient) =>
     request<Patient>('/patients', {

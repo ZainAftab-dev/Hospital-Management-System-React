@@ -12,6 +12,10 @@ const LINE_HEIGHT = 7;
 const PAGE_WIDTH = 210;
 const MARGIN = 15;
 const CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN;
+const PAGE_HEIGHT = 297;
+const FOOTER_Y = 287;
+const FOOTER_LINE_Y = 280;
+const SAFE_BOTTOM = 270;
 
 function addHospitalHeader(doc: jsPDF) {
   doc.setFontSize(16);
@@ -27,19 +31,34 @@ function addHospitalHeader(doc: jsPDF) {
   doc.line(MARGIN, MARGIN + 25, PAGE_WIDTH - MARGIN, MARGIN + 25);
 }
 
+function addFooter(doc: jsPDF) {
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setDrawColor(200, 200, 200);
+  doc.line(MARGIN, FOOTER_LINE_Y, PAGE_WIDTH - MARGIN, FOOTER_LINE_Y);
+  doc.text(`Generated on: ${new Date().toLocaleDateString()}`, PAGE_WIDTH / 2, FOOTER_Y, { align: 'center' });
+}
+
+function checkPageBreak(doc: jsPDF, yPos: number, needed = LINE_HEIGHT): number {
+  if (yPos + needed > SAFE_BOTTOM) {
+    addFooter(doc);
+    doc.addPage();
+    addHospitalHeader(doc);
+    return MARGIN + 35;
+  }
+  return yPos;
+}
+
 export function generatePatientReportPDF(patient: Patient) {
   const doc = new jsPDF();
 
-  // Add header
   addHospitalHeader(doc);
 
-  // Add report title
   let yPos = MARGIN + 35;
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.text('PATIENT REPORT', MARGIN, yPos);
 
-  // Add patient information section
   yPos += 12;
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
@@ -63,21 +82,12 @@ export function generatePatientReportPDF(patient: Patient) {
   ];
 
   patientDetails.forEach((detail) => {
+    yPos = checkPageBreak(doc, yPos);
     doc.text(detail, MARGIN, yPos);
     yPos += LINE_HEIGHT;
   });
 
-  yPos += 5;
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text('No medical records found.', MARGIN, yPos);
-
-  // Add footer
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.setDrawColor(200, 200, 200);
-  doc.line(MARGIN, 280, PAGE_WIDTH - MARGIN, 280);
-  doc.text(`Generated on: ${new Date().toLocaleDateString()}`, PAGE_WIDTH / 2, 287, { align: 'center' });
+  addFooter(doc);
 
   const fileName = `Patient_Report_${patient.id}_${new Date().toISOString().split('T')[0]}.pdf`;
   doc.save(fileName);
@@ -86,16 +96,13 @@ export function generatePatientReportPDF(patient: Patient) {
 export function generateInvoicePDF(invoice: Invoice) {
   const doc = new jsPDF();
 
-  // Add header
   addHospitalHeader(doc);
 
-  // Add invoice title
   let yPos = MARGIN + 35;
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.text('INVOICE', MARGIN, yPos);
 
-  // Add invoice details
   yPos += 10;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -105,8 +112,8 @@ export function generateInvoicePDF(invoice: Invoice) {
   yPos += 7;
   doc.text(`Payment Status: ${invoice.status}`, MARGIN, yPos);
 
-  // Add patient information
   yPos += 12;
+  yPos = checkPageBreak(doc, yPos, 20);
   doc.setFont('helvetica', 'bold');
   doc.text('Patient Information:', MARGIN, yPos);
   yPos += 7;
@@ -115,13 +122,13 @@ export function generateInvoicePDF(invoice: Invoice) {
   yPos += 7;
   doc.text(`Name: ${invoice.patientName}`, MARGIN, yPos);
 
-  // Add billing details table
   yPos += 12;
+  yPos = checkPageBreak(doc, yPos, 20);
   doc.setFont('helvetica', 'bold');
   doc.text('Billing Details:', MARGIN, yPos);
 
-  // Table headers
   yPos += 8;
+  yPos = checkPageBreak(doc, yPos, 14);
   const tableWidth = CONTENT_WIDTH;
   const colWidths = [tableWidth * 0.4, tableWidth * 0.2, tableWidth * 0.2, tableWidth * 0.2];
   const startX = MARGIN;
@@ -140,12 +147,12 @@ export function generateInvoicePDF(invoice: Invoice) {
   xPos += colWidths[2];
   doc.text('Amount', xPos + 8, yPos);
 
-  // Table rows
   yPos += 7;
   doc.setFont('helvetica', 'normal');
   invoice.items.forEach((item) => {
+    yPos = checkPageBreak(doc, yPos, LINE_HEIGHT);
     xPos = startX;
-    doc.text(item.description, xPos + 2, yPos);
+    doc.text(String(item.description).slice(0, 40), xPos + 2, yPos);
     xPos += colWidths[0];
     doc.text(item.quantity.toString(), xPos + 8, yPos);
     xPos += colWidths[1];
@@ -155,8 +162,8 @@ export function generateInvoicePDF(invoice: Invoice) {
     yPos += 7;
   });
 
-  // Totals section
   yPos += 5;
+  yPos = checkPageBreak(doc, yPos, 50);
   const totalsStartX = startX + tableWidth * 0.6;
   doc.setFont('helvetica', 'normal');
   doc.text('Subtotal:', totalsStartX, yPos);
@@ -176,12 +183,7 @@ export function generateInvoicePDF(invoice: Invoice) {
   doc.text('Total:', totalsStartX, yPos);
   doc.text(`Rs. ${invoice.total.toFixed(2)}`, totalsStartX + 70, yPos);
 
-  // Add footer
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.setDrawColor(200, 200, 200);
-  doc.line(MARGIN, 280, PAGE_WIDTH - MARGIN, 280);
-  doc.text(`Generated on: ${new Date().toLocaleDateString()}`, PAGE_WIDTH / 2, 287, { align: 'center' });
+  addFooter(doc);
 
   const fileName = `Invoice_${invoice.invoiceNo}_${new Date().toISOString().split('T')[0]}.pdf`;
   doc.save(fileName);

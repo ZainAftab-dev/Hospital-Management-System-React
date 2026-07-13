@@ -121,10 +121,14 @@ export class PharmacyService {
       });
 
       for (const item of dto.items) {
-        await tx.medicine.update({
-          where: { id: item.medicineId },
+        const result = await tx.medicine.updateMany({
+          where: { id: item.medicineId, quantity: { gte: item.quantity } },
           data: { quantity: { decrement: item.quantity } }
         });
+        if (result.count !== 1) {
+          const medicine = medicineById.get(item.medicineId);
+          throw new BadRequestException(`${medicine?.name ?? item.medicineId} no longer has enough stock`);
+        }
       }
 
       await tx.invoiceItem.createMany({

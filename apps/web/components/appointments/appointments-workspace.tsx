@@ -58,6 +58,18 @@ export function AppointmentsWorkspace() {
         setPatients(p);
         setDoctors(d);
         setError('');
+        if (a.length > 0) {
+          const initialCalendarDate = new Date();
+          const currentMonthKey = `${initialCalendarDate.getFullYear()}-${String(initialCalendarDate.getMonth() + 1).padStart(2, '0')}`;
+          const hasCurrentMonthAppointments = a.some((appointment) => appointment.date.slice(0, 7) === currentMonthKey);
+          if (!hasCurrentMonthAppointments) {
+            const sortedByDate = [...a].sort((left, right) => left.date.localeCompare(right.date));
+            const today = new Date().toISOString().slice(0, 10);
+            const nearest = sortedByDate.find((appointment) => appointment.date.slice(0, 10) >= today) ?? sortedByDate[sortedByDate.length - 1];
+            const [year, month] = nearest.date.slice(0, 10).split('-').map(Number);
+            setCalendarDate(new Date(year, month - 1, 1));
+          }
+        }
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Unable to load appointments from database'))
       .finally(() => setIsLoading(false));
@@ -311,8 +323,12 @@ export function AppointmentsWorkspace() {
               </h3>
               <button onClick={nextMonth} className="px-3 py-1.5 border border-gray-300 rounded text-sm hover:bg-gray-50">Next ›</button>
             </div>
-            <div className="grid grid-cols-7 gap-px bg-gray-200 border border-gray-200 rounded overflow-hidden">
-              {DAYS_SHORT.map(d => (
+            {Object.keys(appointmentsByDay).length === 0 && (
+              <div className="mb-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                No appointments are scheduled in this month. Use Prev/Next to change month or switch to List view for all appointments.
+              </div>
+            )}
+            <div className="grid grid-cols-7 gap-px bg-gray-200 border border-gray-200 rounded overflow-hidden">              {DAYS_SHORT.map(d => (
                 <div key={d} className="bg-gray-100 text-center text-xs font-semibold text-gray-600 py-2">{d}</div>
               ))}
               {calendarDays.map((day, i) => {

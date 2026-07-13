@@ -4,8 +4,10 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUrl,
   Matches,
   Max,
+  MaxLength,
   Min,
   ValidateIf,
 } from 'class-validator';
@@ -44,10 +46,12 @@ export class UpsertPatientDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500, { message: 'Address cannot exceed 500 characters' })
   address?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(200, { message: 'Disease cannot exceed 200 characters' })
   disease?: string;
 
   @IsOptional()
@@ -58,10 +62,12 @@ export class UpsertPatientDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500, { message: 'Allergies cannot exceed 500 characters' })
   allergies?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100, { message: 'Emergency contact cannot exceed 100 characters' })
   emergencyContact?: string;
 
   @IsOptional()
@@ -71,6 +77,8 @@ export class UpsertPatientDto {
 
   @IsOptional()
   @IsString()
+  @IsUrl({}, { message: 'Photo URL must be a valid URL' })
+  @MaxLength(2048, { message: 'Photo URL cannot exceed 2048 characters' })
   photoUrl?: string;
 
   @IsOptional()

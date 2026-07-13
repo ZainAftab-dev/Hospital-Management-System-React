@@ -10,7 +10,7 @@ echo.
 :: ---- 1. Ensure SQL Server is running ----
 echo [1/3] Checking SQL Server...
 sc query MSSQLSERVER >nul 2>&1
-if %errorlevel%==0 (
+if not errorlevel 1 (
     sc query MSSQLSERVER | find "RUNNING" >nul 2>&1
     if %errorlevel% neq 0 (
         echo     SQL Server found but not running. Starting it...
@@ -24,7 +24,7 @@ if %errorlevel%==0 (
     )
 ) else (
     sc query MSSQL$SQLEXPRESS >nul 2>&1
-    if %errorlevel%==0 (
+    if not errorlevel 1 (
         sc query MSSQL$SQLEXPRESS | find "RUNNING" >nul 2>&1
         if %errorlevel% neq 0 (
             echo     Starting SQL Server Express...
@@ -45,13 +45,13 @@ timeout /t 5 /nobreak >nul
 echo.
 echo [2/4] Syncing database schema (adding any new columns)...
 cd /d "%~dp0apps\api"
-node ..\..\node_modules\.bin\prisma db push --skip-generate --accept-data-loss >nul 2>&1
-if %errorlevel%==0 (
+call ..\..\node_modules\.bin\prisma.cmd db push --skip-generate --accept-data-loss
+if not errorlevel 1 (
     echo     Database schema synced successfully.
 ) else (
     echo     Trying migration deploy as fallback...
-    node ..\..\node_modules\.bin\prisma migrate deploy >nul 2>&1
-    if %errorlevel%==0 (echo     Migrations applied.) else (echo     Warning: Schema sync had issues - continuing anyway...)
+    call ..\..\node_modules\.bin\prisma.cmd migrate deploy
+    if not errorlevel 1 (echo     Migrations applied.) else (echo     Warning: Schema sync had issues - continuing anyway...)
 )
 
 :: ---- 2b. Apply CHECK constraints ----
@@ -84,7 +84,7 @@ timeout /t 6 /nobreak >nul
 
 :: Check API actually started
 netstat -ano | find ":4000" >nul 2>&1
-if %errorlevel%==0 (
+if not errorlevel 1 (
     echo     API started successfully on port 4000
 ) else (
     echo     API may still be starting - check api.log if issues occur
@@ -98,7 +98,7 @@ timeout /t 8 /nobreak >nul
 
 :: Check Web started
 netstat -ano | find ":3000" >nul 2>&1
-if %errorlevel%==0 (
+if not errorlevel 1 (
     echo     Web started successfully on port 3000
 ) else (
     echo     Web may still be starting - check web.log if issues occur

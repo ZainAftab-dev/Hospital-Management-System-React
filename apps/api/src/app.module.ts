@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { BillingModule } from './billing/billing.module';
 import { PrismaService } from './common/prisma.service';
 import { DoctorsModule } from './doctors/doctors.module';
+import { HealthController } from './health.controller';
 import { PatientsModule } from './patients/patients.module';
 import { PharmacyModule } from './pharmacy/pharmacy.module';
 import { UsersModule } from './users/users.module';
@@ -20,6 +21,7 @@ import { UsersModule } from './users/users.module';
     BillingModule,
     UsersModule
   ],
+  controllers: [HealthController],
   providers: [PrismaService],
   exports: [PrismaService]
 })

@@ -13,7 +13,13 @@ export class PatientsController {
 
   @Get()
   @Roles(Role.ADMIN, Role.DOCTOR, Role.RECEPTIONIST, Role.PHARMACIST)
-  listPatients(@Query('search') search?: string) {
+  listPatients(
+    @Query('search') search?: string,
+    @Query('take') take?: string,
+    @Query('skip') skip?: string
+  ) {
+    const limit = Math.min(Number(take ?? 1000), 1000);
+    const offset = Math.max(Number(skip ?? 0), 0);
     if (search) {
       return this.prisma.patient.findMany({
         where: {
@@ -24,10 +30,12 @@ export class PatientsController {
             { disease: { contains: search } }
           ]
         },
-        orderBy: { name: 'asc' }
+        orderBy: { name: 'asc' },
+        take: limit,
+        skip: offset
       });
     }
-    return this.prisma.patient.findMany({ orderBy: { name: 'asc' } });
+    return this.prisma.patient.findMany({ orderBy: { name: 'asc' }, take: limit, skip: offset });
   }
 
   @Post()

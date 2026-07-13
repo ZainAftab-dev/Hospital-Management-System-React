@@ -1,10 +1,34 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { Role } from '../auth/roles';
 import { PrismaService } from '../common/prisma.service';
-import { UpsertInvoiceDto } from './dto';
+import { UpdateInvoiceStatusDto, UpsertInvoiceDto } from './dto';
+
+function buildInvoiceItems(body: UpsertInvoiceDto) {
+  return body.items.map((item) => ({
+    description: item.description,
+    quantity: item.quantity,
+    unitPriceCents: item.unitPriceCents,
+    amountCents: item.quantity * item.unitPriceCents,
+    sourceType: item.sourceType ?? 'MANUAL',
+    sourceId: item.sourceId
+  }));
+}
+
+function calculateTotals(body: UpsertInvoiceDto) {
+  const items = buildInvoiceItems(body);
+  const subtotalCents = items.reduce((sum, item) => sum + item.amountCents, 0);
+  if (body.discountCents > subtotalCents) {
+    throw new BadRequestException('Discount cannot exceed invoice subtotal');
+  }
+  return {
+    items,
+    subtotalCents,
+    totalCents: subtotalCents - body.discountCents + body.taxCents
+  };
+}
 
 @Controller('billing')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -13,10 +37,14 @@ export class BillingController {
 
   @Get()
   @Roles(Role.ADMIN, Role.RECEPTIONIST, Role.PHARMACIST)
-  listInvoices() {
+  listInvoices(@Query('take') take?: string, @Query('skip') skip?: string) {
+    const limit = Math.min(Number(take ?? 1000), 1000);
+    const offset = Math.max(Number(skip ?? 0), 0);
     return this.prisma.invoice.findMany({
       orderBy: { createdAt: 'desc' },
-      include: { patient: true, items: true }
+      include: { patient: true, items: true },
+      take: limit,
+      skip: offset
     });
   }
 
@@ -34,8 +62,7 @@ export class BillingController {
   @Post()
   @Roles(Role.ADMIN, Role.RECEPTIONIST)
   createInvoice(@Body() body: UpsertInvoiceDto) {
-    const subtotalCents = body.items.reduce((sum, item) => sum + item.amountCents, 0);
-    const totalCents = subtotalCents - body.discountCents + body.taxCents;
+    const { items, subtotalCents, totalCents } = calculateTotals(body);
     return this.prisma.invoice.create({
       data: {
         invoiceNo: body.invoiceNo,
@@ -46,16 +73,7 @@ export class BillingController {
         taxCents: body.taxCents,
         totalCents,
         paymentMode: body.paymentMode,
-        items: {
-          create: body.items.map((item) => ({
-            description: item.description,
-            quantity: item.quantity,
-            unitPriceCents: item.unitPriceCents,
-            amountCents: item.amountCents,
-            sourceType: item.sourceType ?? 'MANUAL',
-            sourceId: item.sourceId
-          }))
-        }
+        items: { create: items }
       },
       include: { patient: true, items: true }
     });
@@ -64,8 +82,7 @@ export class BillingController {
   @Put(':id')
   @Roles(Role.ADMIN, Role.RECEPTIONIST)
   async updateInvoice(@Param('id') id: string, @Body() body: UpsertInvoiceDto) {
-    const subtotalCents = body.items.reduce((sum, item) => sum + item.amountCents, 0);
-    const totalCents = subtotalCents - body.discountCents + body.taxCents;
+    const { items, subtotalCents, totalCents } = calculateTotals(body);
     return this.prisma.$transaction(async (tx) => {
       await tx.invoiceItem.deleteMany({ where: { invoiceId: id } });
       return tx.invoice.update({
@@ -79,16 +96,7 @@ export class BillingController {
           taxCents: body.taxCents,
           totalCents,
           paymentMode: body.paymentMode,
-          items: {
-            create: body.items.map((item) => ({
-              description: item.description,
-              quantity: item.quantity,
-              unitPriceCents: item.unitPriceCents,
-              amountCents: item.amountCents,
-              sourceType: item.sourceType ?? 'MANUAL',
-              sourceId: item.sourceId
-            }))
-          }
+          items: { create: items }
         },
         include: { patient: true, items: true }
       });
@@ -97,7 +105,7 @@ export class BillingController {
 
   @Patch(':id/status')
   @Roles(Role.ADMIN, Role.RECEPTIONIST, Role.PHARMACIST)
-  updateInvoiceStatus(@Param('id') id: string, @Body() body: { status: string; paymentMode?: string }) {
+  updateInvoiceStatus(@Param('id') id: string, @Body() body: UpdateInvoiceStatusDto) {
     return this.prisma.invoice.update({
       where: { id },
       data: {

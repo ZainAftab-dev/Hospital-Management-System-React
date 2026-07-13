@@ -85,11 +85,6 @@ async function seedMedicines() {
     });
   }
 
-  await prisma.medicine.deleteMany({
-    where: {
-      id: { notIn: medicineIds }
-    }
-  });
 }
 
 async function main() {

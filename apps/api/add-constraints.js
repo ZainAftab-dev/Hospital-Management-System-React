@@ -38,13 +38,13 @@ const CONSTRAINTS = [
 
   // ── Invoice ───────────────────────────────────────────────────────
   ['[chk_invoice_status]',   '[dbo].[Invoice]',
-    `[status] IN ('DRAFT','UNPAID','PAID')`],
+    `[status] IN ('DRAFT','UNPAID','PAID','CANCELLED')`],
   ['[chk_invoice_subtotal]', '[dbo].[Invoice]', `[subtotalCents] >= 0`],
   ['[chk_invoice_discount]', '[dbo].[Invoice]', `[discountCents] >= 0`],
   ['[chk_invoice_tax]',      '[dbo].[Invoice]', `[taxCents]      >= 0`],
   ['[chk_invoice_total]',    '[dbo].[Invoice]', `[totalCents]    >= 0`],
   ['[chk_invoice_pay_mode]', '[dbo].[Invoice]',
-    `[paymentMode] IS NULL OR [paymentMode] IN ('Cash','Card','Online')`],
+    `[paymentMode] IS NULL OR [paymentMode] IN ('Cash','Card','Online','Bank Transfer','Insurance')`],
 
   // ── InvoiceItem ───────────────────────────────────────────────────
   ['[chk_invitem_qty]',       '[dbo].[InvoiceItem]', `[quantity]      >  0`],
@@ -61,25 +61,28 @@ const CONSTRAINTS = [
 ];
 
 async function main() {
-  console.log(`Adding ${CONSTRAINTS.length} CHECK constraints to SQL Server...\n`);
-  let added = 0, skipped = 0;
+  console.log(`Applying ${CONSTRAINTS.length} CHECK constraints to SQL Server...\n`);
+  let applied = 0, failed = 0;
 
   for (const [name, table, check] of CONSTRAINTS) {
     const label = name.replace(/\[|\]/g, '');
     try {
+      // Drop the constraint if it exists (handles definition changes), then recreate
+      await prisma.$executeRawUnsafe(
+        `IF OBJECT_ID('dbo.${label}', 'C') IS NOT NULL ALTER TABLE ${table} DROP CONSTRAINT ${name}`
+      );
       await prisma.$executeRawUnsafe(
         `ALTER TABLE ${table} ADD CONSTRAINT ${name} CHECK (${check})`
       );
       console.log(`  + ${label}`);
-      added++;
-    } catch {
-      // Already exists or existing data violates it (constraint is skipped, not failed)
-      console.log(`  ~ ${label} (already exists or skipped)`);
-      skipped++;
+      applied++;
+    } catch (err) {
+      console.log(`  ! ${label} (error: ${err.message})`);
+      failed++;
     }
   }
 
-  console.log(`\nDone — ${added} added, ${skipped} skipped.`);
+  console.log(`\nDone — ${applied} applied, ${failed} failed.`);
 }
 
 main()

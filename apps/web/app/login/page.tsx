@@ -23,7 +23,7 @@ export default function LoginPage() {
         return;
       }
       const result = await hospitalApi.login(email, password);
-      localStorage.setItem('authToken', result.accessToken);
+      // Token is stored in httpOnly cookie by the API — do not store it in localStorage
       localStorage.setItem('userEmail', email);
       localStorage.setItem('userName', result.user.name);
       localStorage.setItem('userRole', result.user.role);

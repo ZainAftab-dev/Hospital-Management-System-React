@@ -6,6 +6,7 @@ import {
   IsString,
   Matches,
   Max,
+  MaxLength,
   Min,
   ValidateIf,
 } from 'class-validator';
@@ -42,12 +43,15 @@ export class UpsertDoctorDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500, { message: 'Address cannot exceed 500 characters' })
   address?: string;
 
   @IsString()
+  @MaxLength(100, { message: 'Specialization cannot exceed 100 characters' })
   specialization!: string;
 
   @IsString()
+  @MaxLength(200, { message: 'Qualification cannot exceed 200 characters' })
   qualification!: string;
 
   @IsString()
@@ -55,9 +59,11 @@ export class UpsertDoctorDto {
   availability!: string;
 
   @IsString()
+  @Matches(/^\d+(\.\d{1,2})?$/, { message: 'Consultation fee must be a positive number (e.g. 1500 or 750.50)' })
   consultationFee!: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(50, { message: 'License number cannot exceed 50 characters' })
   licenseNumber?: string;
 }

@@ -43,10 +43,15 @@ Every staff role — Admin, Doctor, Receptionist, Pharmacist and General Staff �
 | 👥 **Users** | Staff management with five roles and account status control |
 
 ### 🔐 Security & Access Control
-- **JWT-based authentication** (8-hour token expiry, bcrypt-hashed passwords)
-- **Role-Based Access Control (RBAC)** enforced per API endpoint
-- Server-side validation on every request (DTO whitelisting + type transformation)
-- CORS locked to the trusted web origin
+- **httpOnly cookie-based JWT** — token is never accessible to JavaScript; 8-hour expiry, bcrypt-hashed passwords
+- **Role-Based Access Control (RBAC)** enforced per API endpoint with inactive-account check on every request
+- **Login rate limiting** — in-memory sliding-window limiter (5 attempts / 15 min per IP)
+- **Request body size cap** — 10 KB limit on all API requests to prevent payload-flooding
+- **Pagination on all list endpoints** — max 1 000 records per request, configurable via `?take=&skip=`
+- **Doctor scheduling conflict detection** — duplicate appointment time rejected with 409 Conflict
+- **Comprehensive input validation** — DTO whitelisting, `MaxLength` on every free-text field, format checks (HH:MM time, URL pattern, currency format)
+- **DB-level CHECK constraints** — valid statuses, non-negative amounts, allowed payment modes enforced at the database layer
+- **CORS locked** to the configured web origin; `credentials: true` for cross-port cookie forwarding
 
 ---
 
@@ -59,7 +64,7 @@ Every staff role — Admin, Doctor, Receptionist, Pharmacist and General Staff �
 
 **Backend**
 - NestJS 10 · Prisma ORM 6
-- Passport JWT · bcryptjs · class-validator
+- Passport JWT · bcryptjs · class-validator · cookie-parser
 
 **Database**
 - Microsoft SQL Server 2022
@@ -75,7 +80,7 @@ Every staff role — Admin, Doctor, Receptionist, Pharmacist and General Staff �
 ```mermaid
 flowchart LR
     A[Browser] -->|HTTPS| B[Next.js Web<br/>:3000]
-    B -->|REST + JWT| C[NestJS API<br/>:4000]
+    B -->|REST + httpOnly cookie JWT| C[NestJS API<br/>:4000]
     C -->|Prisma ORM| D[(SQL Server<br/>:1433)]
 
     subgraph Docker Compose
@@ -97,7 +102,7 @@ This isn't just CRUD on top of tables — the schema includes real relational da
 - **4 Views** — `vw_PatientSummary`, `vw_DoctorSchedule`, `vw_PharmacyStock`, `vw_BillingOverview`
 - **4 Triggers** — automatic audit logging on patient insert/update/delete and invoice status changes
 - **4 Stored Procedures** — `sp_GetPatientHistory`, `sp_GetLowStockMedicines`, `sp_GetDoctorStats`, `sp_GetMonthlyRevenue`
-- **~25 CHECK constraints** — data-integrity rules (valid roles, age ranges, non-negative amounts, allowed statuses)
+- **~25 CHECK constraints** — data-integrity rules (valid roles, age ranges, non-negative amounts, invoice statuses: DRAFT / UNPAID / PAID / CANCELLED, payment modes: Cash / Card / Online / Bank Transfer / Insurance)
 - **9 indexes** on frequently queried columns
 - **Transactional pharmacy dispensing** — stock check, deduction, invoice line items and totals all in one atomic transaction
 
@@ -162,14 +167,18 @@ npm run dev
 │   ├── web/                 # Next.js 15 frontend
 │   │   ├── app/             # Pages (dashboard, login)
 │   │   ├── components/      # Module workspaces + UI components
-│   │   └── lib/             # API client, PDF utils
+│   │   └── lib/             # API client, PDF utils, error boundary
 │   └── api/                 # NestJS backend
 │       ├── src/             # Auth, patients, doctors, appointments,
 │       │                    #   pharmacy, billing, users modules
-│       └── prisma/          # Schema, migrations, seed data
+│       ├── prisma/          # Schema, migrations, seed data
+│       └── docker/          # DB bootstrap & object scripts
 ├── docker-compose.yml       # 3-service stack (db + api + web)
-├── DOCKER_README.md         # Client-facing Docker guide
-└── START_DOCKER.bat         # One-click Windows launcher
+├── DOCKER_README.md         # Docker startup guide
+├── START_DOCKER.bat         # One-click Docker launcher (Windows)
+├── STOP_DOCKER.bat          # One-click Docker stop (Windows)
+├── START_HMS.bat            # Local (non-Docker) launcher — starts built API + web
+└── HMS_Queries.sql          # Reference SQL queries for all major operations
 ```
 
 ---

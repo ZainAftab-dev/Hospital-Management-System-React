@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { hash } from 'bcryptjs';
 import { Role } from '../auth/roles';
@@ -7,6 +7,17 @@ import { RolesGuard } from '../auth/roles.guard';
 import { PrismaService } from '../common/prisma.service';
 import { CreateUserDto, UpdateUserDto } from './dto';
 
+const userSelect = {
+  id: true,
+  name: true,
+  email: true,
+  role: true,
+  phone: true,
+  department: true,
+  status: true,
+  createdAt: true
+};
+
 @Controller('users')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class UsersController {
@@ -14,19 +25,14 @@ export class UsersController {
 
   @Get()
   @Roles(Role.ADMIN)
-  async listUsers() {
+  async listUsers(@Query('take') take?: string, @Query('skip') skip?: string) {
+    const limit = Math.min(Number(take ?? 500), 500);
+    const offset = Math.max(Number(skip ?? 0), 0);
     return this.prisma.user.findMany({
       orderBy: { name: 'asc' },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        phone: true,
-        department: true,
-        status: true,
-        createdAt: true
-      }
+      select: userSelect,
+      take: limit,
+      skip: offset
     });
   }
 
@@ -36,23 +42,14 @@ export class UsersController {
     return this.prisma.user.create({
       data: {
         name: body.name,
-        email: body.email,
-        passwordHash: await hash(body.password ?? 'Password@123', 12),
+        email: body.email.trim().toLowerCase(),
+        passwordHash: await hash(body.password, 12),
         role: body.role,
         phone: body.phone,
         department: body.department,
         status: body.status ?? 'Active'
       },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        phone: true,
-        department: true,
-        status: true,
-        createdAt: true
-      }
+      select: userSelect
     });
   }
 
@@ -65,23 +62,14 @@ export class UsersController {
       where: { id },
       data: {
         name: body.name,
-        email: body.email,
+        email: body.email.trim().toLowerCase(),
         role: body.role,
         phone: body.phone,
         department: body.department,
         status: body.status ?? 'Active',
         ...passwordData
       },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        phone: true,
-        department: true,
-        status: true,
-        createdAt: true
-      }
+      select: userSelect
     });
   }
 
@@ -90,16 +78,7 @@ export class UsersController {
   deleteUser(@Param('id') id: string) {
     return this.prisma.user.delete({
       where: { id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        phone: true,
-        department: true,
-        status: true,
-        createdAt: true
-      }
+      select: userSelect
     });
   }
 }

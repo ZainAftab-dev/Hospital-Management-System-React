@@ -11,6 +11,7 @@ import { ReportsWorkspace } from '@/components/reports/reports-workspace';
 import { UsersWorkspace } from '@/components/users/users-workspace';
 import { AnalyticsWorkspace } from '@/components/analytics/analytics-workspace';
 import { BarChart2, ClipboardList, FileText, LogOut, Pill, Shield, Stethoscope, Users } from 'lucide-react';
+import { hospitalApi } from '@/lib/api';
 
 type Section = 'patients' | 'doctors' | 'appointments' | 'pharmacy' | 'billing' | 'reports' | 'users' | 'analytics';
 type UserRole = 'ADMIN' | 'DOCTOR' | 'RECEPTIONIST' | 'PHARMACIST' | 'STAFF';
@@ -20,7 +21,7 @@ const ALL_NAV_ITEMS = [
   { label: 'Doctors',      icon: Stethoscope,  id: 'doctors'      as Section, roles: ['ADMIN'] },
   { label: 'Appointments', icon: ClipboardList, id: 'appointments' as Section, roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST', 'STAFF'] },
   { label: 'Pharmacy',     icon: Pill,         id: 'pharmacy'     as Section, roles: ['ADMIN', 'PHARMACIST'] },
-  { label: 'Billing',      icon: FileText,     id: 'billing'      as Section, roles: ['ADMIN', 'RECEPTIONIST'] },
+  { label: 'Billing',      icon: FileText,     id: 'billing'      as Section, roles: ['ADMIN', 'RECEPTIONIST', 'PHARMACIST'] },
   { label: 'Reports',      icon: ClipboardList, id: 'reports'     as Section, roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST', 'STAFF'] },
   { label: 'Analytics',    icon: BarChart2,    id: 'analytics'    as Section, roles: ['ADMIN'] },
   { label: 'Users',        icon: Shield,       id: 'users'        as Section, roles: ['ADMIN'] },
@@ -44,27 +45,27 @@ export default function Home() {
   const [userRole, setUserRole] = useState<UserRole>('ADMIN');
 
   useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-    const storedName = typeof window !== 'undefined' ? localStorage.getItem('userName') : null;
-    const storedRole = typeof window !== 'undefined' ? localStorage.getItem('userRole') : null;
-
-    if (token) {
-      setIsAuthenticated(true);
-      if (storedName) setUserName(storedName);
-      if (storedRole) {
-        const role = storedRole as UserRole;
+    hospitalApi.me()
+      .then((user) => {
+        setIsAuthenticated(true);
+        setUserName(user.name);
+        const role = user.role as UserRole;
         setUserRole(role);
         setActiveSection(getDefaultSection(role));
-      }
-    } else {
-      setIsAuthenticated(false);
-      router.push('/login');
-    }
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('userName', user.name);
+          localStorage.setItem('userRole', user.role);
+        }
+      })
+      .catch(() => {
+        setIsAuthenticated(false);
+        router.push('/login');
+      });
   }, [router]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await hospitalApi.logout().catch(() => {});
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('authToken');
       localStorage.removeItem('userEmail');
       localStorage.removeItem('userName');
       localStorage.removeItem('userRole');

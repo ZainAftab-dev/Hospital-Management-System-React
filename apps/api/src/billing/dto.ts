@@ -23,9 +23,10 @@ export class InvoiceItemDto {
   @Min(0, { message: 'Unit price cannot be negative' })
   unitPriceCents!: number;
 
+  @IsOptional()
   @IsInt()
   @Min(0, { message: 'Amount cannot be negative' })
-  amountCents!: number;
+  amountCents?: number;
 
   @IsOptional()
   @IsString()
@@ -45,7 +46,7 @@ export class UpsertInvoiceDto {
   patientId!: string;
 
   @IsString()
-  @IsIn(['DRAFT', 'UNPAID', 'PAID'], { message: 'Status must be DRAFT, UNPAID, or PAID' })
+  @IsIn(['DRAFT', 'UNPAID', 'PAID', 'CANCELLED'], { message: 'Status must be DRAFT, UNPAID, PAID, or CANCELLED' })
   status!: string;
 
   @IsInt()
@@ -58,7 +59,7 @@ export class UpsertInvoiceDto {
 
   @IsOptional()
   @ValidateIf(o => !!o.paymentMode)
-  @IsIn(['Cash', 'Card', 'Online'], { message: 'Payment mode must be Cash, Card, or Online' })
+  @IsIn(['Cash', 'Card', 'Online', 'Bank Transfer', 'Insurance'], { message: 'Payment mode must be Cash, Card, Online, Bank Transfer, or Insurance' })
   paymentMode?: string;
 
   @IsArray()
@@ -66,4 +67,15 @@ export class UpsertInvoiceDto {
   @ValidateNested({ each: true })
   @Type(() => InvoiceItemDto)
   items!: InvoiceItemDto[];
+}
+
+export class UpdateInvoiceStatusDto {
+  @IsString()
+  @IsIn(['DRAFT', 'UNPAID', 'PAID', 'CANCELLED'], { message: 'Status must be DRAFT, UNPAID, PAID, or CANCELLED' })
+  status!: string;
+
+  @IsOptional()
+  @ValidateIf(o => !!o.paymentMode)
+  @IsIn(['Cash', 'Card', 'Online', 'Bank Transfer', 'Insurance'], { message: 'Payment mode must be Cash, Card, Online, Bank Transfer, or Insurance' })
+  paymentMode?: string;
 }

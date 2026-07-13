@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { invoices as initialInvoices } from '@/lib/mock-data';
 import { generateInvoicePDF } from '@/lib/pdf-utils';
 import { hospitalApi } from '@/lib/api';
 import { formatRupees } from '@/lib/utils';
@@ -12,8 +11,9 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export function BillingWorkspace() {
-  const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -63,7 +63,7 @@ export function BillingWorkspace() {
   };
 
   const createInvoice = async () => {
-    if (!newInvoice.invoiceNo || !newInvoice.date || !newInvoice.patientId || !newInvoice.patientName) return;
+    if (isSubmitting || !newInvoice.invoiceNo || !newInvoice.date || !newInvoice.patientId || !newInvoice.patientName) return;
     const items = newInvoice.items?.length
       ? newInvoice.items
       : [{ description: 'Consultation Fee', quantity: 1, unitPrice: 1500, amount: 1500 }];
@@ -81,6 +81,7 @@ export function BillingWorkspace() {
       tax: 0,
       total: subtotal
     };
+    setIsSubmitting(true);
     try {
       const saved = await hospitalApi.createInvoice(invoice);
       setInvoices((current) => [saved, ...current]);
@@ -99,16 +100,19 @@ export function BillingWorkspace() {
       setError('');
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Unable to create invoice');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const saveEditedInvoice = async () => {
-    if (!editingInvoice?.id || !editingInvoice.invoiceNo || !editingInvoice.date || !editingInvoice.patientId || !editingInvoice.patientName) return;
+    if (isSubmitting || !editingInvoice?.id || !editingInvoice.invoiceNo || !editingInvoice.date || !editingInvoice.patientId || !editingInvoice.patientName) return;
     const items = editingInvoice.items?.length ? editingInvoice.items : [];
     const subtotal = Number(items.reduce((sum, item) => sum + item.amount, 0).toFixed(2));
     const discount = editingInvoice.discount ?? 0;
     const tax = editingInvoice.tax ?? 0;
     const total = Number((subtotal - discount + tax).toFixed(2));
+    setIsSubmitting(true);
     try {
       const saved = await hospitalApi.updateInvoice(editingInvoice.id, { ...editingInvoice, items, subtotal, discount, tax, total } as Invoice);
       setInvoices((current) => current.map((invoice) => invoice.id === editingInvoice.id ? saved : invoice));
@@ -119,6 +123,8 @@ export function BillingWorkspace() {
       setError('');
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Unable to update invoice');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -494,8 +500,8 @@ export function BillingWorkspace() {
               </div>
             )}
             <div className="flex gap-3 justify-end pt-4 border-t">
-              <Button variant="outline" onClick={() => setIsNewInvoiceOpen(false)}>Cancel</Button>
-              <Button onClick={createInvoice}>Create Invoice</Button>
+              <Button variant="outline" onClick={() => setIsNewInvoiceOpen(false)} disabled={isSubmitting}>Cancel</Button>
+              <Button onClick={createInvoice} disabled={isSubmitting}>{isSubmitting ? 'Creating...' : 'Create Invoice'}</Button>
             </div>
           </div>
         </DialogContent>
@@ -583,8 +589,8 @@ export function BillingWorkspace() {
               </div>
             )}
             <div className="flex gap-3 justify-end pt-4 border-t">
-              <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
-              <Button onClick={saveEditedInvoice}>Save Changes</Button>
+              <Button variant="outline" onClick={() => setIsEditOpen(false)} disabled={isSubmitting}>Cancel</Button>
+              <Button onClick={saveEditedInvoice} disabled={isSubmitting}>{isSubmitting ? 'Saving...' : 'Save Changes'}</Button>
             </div>
           </div>
         </DialogContent>

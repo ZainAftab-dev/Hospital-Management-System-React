@@ -27,13 +27,20 @@ done
 echo "[2/6] Applying database schema (prisma db push)..."
 npx prisma db push --skip-generate --accept-data-loss
 
-# ---- 3. Seed rich demo data (patients, doctors, appointments, invoices, medicines) ----
-echo "[3/6] Seeding demo data..."
-npx tsx prisma/seed.ts || echo "      (seed.ts warning — continuing)"
+# ---- 3 & 4. Seed demo data — only on first run ----
+SEED_FLAG=/app/.seeded
+if [ ! -f "$SEED_FLAG" ]; then
+  echo "[3/6] Seeding demo data (first run)..."
+  npx tsx prisma/seed.ts || echo "      (seed.ts warning — continuing)"
 
-# ---- 4. Ensure all five role logins + full medicine catalog ----
-echo "[4/6] Ensuring role-based logins and medicine catalog..."
-node prisma/seed-users.cjs || echo "      (seed-users warning — continuing)"
+  echo "[4/6] Ensuring role-based logins and medicine catalog..."
+  node prisma/seed-users.cjs || echo "      (seed-users warning — continuing)"
+
+  touch "$SEED_FLAG"
+  echo "      First-run seed complete. Subsequent restarts will skip seeding."
+else
+  echo "[3-4/6] Skipping seed (already seeded). Delete /app/.seeded inside the container to re-seed."
+fi
 
 # ---- 5. Data-integrity rules + DB objects (indexes, views, triggers, procs) ----
 echo "[5/6] Applying CHECK constraints, indexes, views, triggers, procedures..."

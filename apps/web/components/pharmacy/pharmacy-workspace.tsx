@@ -11,7 +11,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { invoices as initialInvoices, medicines as initialMedicines, patients as initialPatients } from '@/lib/mock-data';
 import { hospitalApi } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import type { CartItem, Invoice, InvoiceItem, Medicine, Patient } from '@/types/hospital';
@@ -32,15 +31,16 @@ const prescriptionDefaultsSchema = z.object({
 type PrescriptionDefaults = z.infer<typeof prescriptionDefaultsSchema>;
 
 export function PharmacyWorkspace() {
-  const [medicines, setMedicines] = useState<Medicine[]>(initialMedicines);
-  const [patients, setPatients] = useState<Patient[]>(initialPatients);
-  const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices);
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDispensing, setIsDispensing] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
-  const [selectedMedicine, setSelectedMedicine] = useState<Medicine | undefined>(initialMedicines[0]);
-  const [selectedPatientId, setSelectedPatientId] = useState(initialPatients[0].id);
+  const [selectedMedicine, setSelectedMedicine] = useState<Medicine | undefined>(undefined);
+  const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isAddMedicineOpen, setIsAddMedicineOpen] = useState(false);
   const [isEditMedicineOpen, setIsEditMedicineOpen] = useState(false);
@@ -77,12 +77,14 @@ export function PharmacyWorkspace() {
       .finally(() => setIsLoading(false));
   }, []);
 
-  const selectedPatient = patients.find((patient) => patient.id === selectedPatientId) ?? patients[0] ?? initialPatients[0];
-  const activeInvoice = invoices.find(
-    (invoice) =>
-      invoice.patientId === selectedPatient.id &&
-      (invoice.status === 'UNPAID' || invoice.status === 'DRAFT')
-  );
+  const selectedPatient = patients.find((patient) => patient.id === selectedPatientId) ?? patients[0];
+  const activeInvoice = selectedPatient
+    ? invoices.find(
+        (invoice) =>
+          invoice.patientId === selectedPatient.id &&
+          (invoice.status === 'UNPAID' || invoice.status === 'DRAFT')
+      )
+    : undefined;
   const categories = useMemo(() => ['all', ...Array.from(new Set(medicines.map((medicine) => medicine.category)))], [medicines]);
   const filteredMedicines = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -272,7 +274,8 @@ export function PharmacyWorkspace() {
   }
 
   async function dispenseMedicine() {
-    if (!cart.length || !selectedPatient) return;
+    if (isDispensing || !cart.length || !selectedPatient) return;
+    setIsDispensing(true);
     try {
       const result = await hospitalApi.dispense({
         patientId: selectedPatient.id,
@@ -299,6 +302,8 @@ export function PharmacyWorkspace() {
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to dispense medicine');
+    } finally {
+      setIsDispensing(false);
     }
   }
 
@@ -447,7 +452,7 @@ export function PharmacyWorkspace() {
         </div>
       </div>
       {error && <div className="mb-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-      {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">Loading pharmacy data from MySQL...</div>}
+      {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">Loading pharmacy data from database...</div>}
 
       <Tabs defaultValue="inventory">
         <TabsList>
@@ -574,7 +579,10 @@ export function PharmacyWorkspace() {
               </div>
             </div>
 
-            <InvoicePreview patient={selectedPatient} activeInvoice={activeInvoice} cart={cart} pendingTotal={cartTotal} onDispense={dispenseMedicine} />
+            {selectedPatient
+              ? <InvoicePreview patient={selectedPatient} activeInvoice={activeInvoice} cart={cart} pendingTotal={cartTotal} onDispense={dispenseMedicine} isDispensing={isDispensing} />
+              : <div className="clinical-panel flex min-h-[620px] flex-col p-4 items-center justify-center text-gray-500"><p className="text-sm">Select a patient to begin prescribing</p></div>
+            }
           </div>
         </TabsContent>
       </Tabs>
@@ -945,13 +953,15 @@ function InvoicePreview({
   activeInvoice,
   cart,
   pendingTotal,
-  onDispense
+  onDispense,
+  isDispensing
 }: {
   patient: Patient;
   activeInvoice?: Invoice;
   cart: CartItem[];
   pendingTotal: number;
   onDispense: () => void;
+  isDispensing: boolean;
 }) {
   const pendingItems = cart.map((item) => ({
     description: `Medicine - ${item.medicine.name}`,
@@ -1039,8 +1049,8 @@ function InvoicePreview({
         </div>
       </div>
 
-      <Button className="mt-4 w-full" disabled={pendingTotal <= 0} onClick={onDispense}>
-        Dispense Medicine and Update Invoice
+      <Button className="mt-4 w-full" disabled={pendingTotal <= 0 || isDispensing} onClick={onDispense}>
+        {isDispensing ? 'Dispensing...' : 'Dispense Medicine and Update Invoice'}
       </Button>
     </aside>
   );

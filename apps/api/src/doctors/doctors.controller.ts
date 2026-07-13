@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -13,8 +13,14 @@ export class DoctorsController {
 
   @Get()
   @Roles(Role.ADMIN, Role.DOCTOR, Role.RECEPTIONIST, Role.PHARMACIST)
-  listDoctors() {
-    return this.prisma.doctor.findMany({ orderBy: [{ specialization: 'asc' }, { name: 'asc' }] });
+  listDoctors(@Query('take') take?: string, @Query('skip') skip?: string) {
+    const limit = Math.min(Number(take ?? 1000), 1000);
+    const offset = Math.max(Number(skip ?? 0), 0);
+    return this.prisma.doctor.findMany({
+      orderBy: [{ specialization: 'asc' }, { name: 'asc' }],
+      take: limit,
+      skip: offset
+    });
   }
 
   @Post()
