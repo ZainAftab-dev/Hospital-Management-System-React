@@ -24,6 +24,8 @@ Manage patients, doctors, appointments, pharmacy, billing and analytics — all 
 
 </div>
 
+> This is the web successor of the Java Swing desktop version: [hospital-management-system](https://github.com/ZainAftab-dev/hospital-management-system).
+
 ---
 
 ## 📋 Overview
@@ -255,8 +257,8 @@ npm run dev
 
 ## 👤 Author
 
-**Zain Aftab**
-🔗 GitHub: [@ZainAftab-dev](https://github.com/ZainAftab-dev)
+**Zain Aftab** · Founder, [Strategeon Softwares](https://strategeonsoftwares.com)
+🔗 [GitHub](https://github.com/ZainAftab-dev) · [LinkedIn](https://www.linkedin.com/in/zain-aftab-563727295/)
 
 ---
 
