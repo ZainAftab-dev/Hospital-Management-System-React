@@ -79,6 +79,12 @@ export default function Home() {
   const [openNewAppointment, setOpenNewAppointment] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [viewKey, setViewKey] = useState(0);
+  const [slowStart, setSlowStart] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSlowStart(true), 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     hospitalApi.me()
@@ -128,8 +134,16 @@ export default function Home() {
 
   if (isAuthenticated === null) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f5f7fa]">
-        <div className="text-lg text-gray-600">Loading...</div>
+      <div className="flex min-h-screen items-center justify-center bg-[#f5f7fa] p-6">
+        <div role="status" aria-live="polite" className="max-w-sm text-center text-gray-600">
+          <div className="text-lg">Loading...</div>
+          {slowStart && (
+            <p className="mt-3 text-sm text-gray-500">
+              Waking up the demo server. It sleeps when nobody has used it for a while and can take up to a
+              minute to start.
+            </p>
+          )}
+        </div>
       </div>
     );
   }

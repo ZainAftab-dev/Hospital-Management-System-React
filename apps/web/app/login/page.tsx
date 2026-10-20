@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { hospitalApi } from '@/lib/api';
+import { ApiUnreachableError, hospitalApi } from '@/lib/api';
+import { useServerStatus } from '@/lib/use-server-status';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,17 +13,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState('Admin@12345');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  // The user pressed Login while the server was still waking up; sign in once it's ready.
+  const [loginQueued, setLoginQueued] = useState(false);
+  const server = useServerStatus();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const doLogin = useCallback(async () => {
     setError('');
     setIsLoading(true);
-
     try {
-      if (!email || !password) {
-        setError('Please enter email and password');
-        return;
-      }
       const result = await hospitalApi.login(email, password);
       // Token is stored in httpOnly cookie by the API — do not store it in localStorage
       localStorage.setItem('userEmail', email);
@@ -29,11 +28,42 @@ export default function LoginPage() {
       localStorage.setItem('userRole', result.user.role);
       router.push('/');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
+      if (err instanceof ApiUnreachableError) {
+        // The server went back to sleep or is restarting: wait for it, then retry.
+        setLoginQueued(true);
+        server.recheck();
+      } else {
+        setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
+  }, [email, password, router, server.recheck]);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (!email || !password) {
+      setError('Please enter email and password');
+      return;
+    }
+    if (server.status !== 'ready') {
+      setLoginQueued(true);
+      if (server.status === 'offline') server.recheck();
+      return;
+    }
+    void doLogin();
   };
+
+  useEffect(() => {
+    if (loginQueued && server.status === 'ready') {
+      setLoginQueued(false);
+      void doLogin();
+    }
+    if (server.status === 'offline') setLoginQueued(false);
+  }, [loginQueued, server.status, doLogin]);
+
+  const waiting = loginQueued && server.status !== 'ready' && server.status !== 'offline';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#5b8ab8] to-[#3d5a7f] flex items-center justify-center p-4">
@@ -50,6 +80,40 @@ export default function LoginPage() {
         {/* Login Form */}
         <div className="bg-white rounded-lg shadow-xl p-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Login</h2>
+
+          {server.status === 'waking' && (
+            <div role="status" aria-live="polite" className="mb-4 flex gap-3 p-3 bg-amber-50 border border-amber-200 rounded text-amber-900 text-sm">
+              <Loader2 className="h-4 w-4 mt-0.5 shrink-0 animate-spin" aria-hidden="true" />
+              <div>
+                <p className="font-semibold">Waking up the demo server… {server.elapsed}s</p>
+                <p className="mt-1 text-amber-800">
+                  This free demo server goes to sleep when nobody has used it for a while. Starting it again
+                  usually takes 30–60 seconds.{' '}
+                  {loginQueued ? "You'll be signed in automatically as soon as it's ready." : 'You can press Login now and you\'ll be signed in as soon as it\'s ready.'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {server.status === 'ready' && server.wasAsleep && !error && (
+            <div role="status" aria-live="polite" className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded text-emerald-800 text-sm">
+              The server is awake. {loginQueued || isLoading ? 'Signing you in…' : 'You can log in now.'}
+            </div>
+          )}
+
+          {server.status === 'offline' && (
+            <div role="alert" className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+              <p className="font-semibold">The demo server isn&apos;t responding yet.</p>
+              <p className="mt-1">It may still be starting up, or it may be down for maintenance. Please try again in a minute.</p>
+              <button
+                type="button"
+                onClick={server.recheck}
+                className="mt-2 font-semibold underline underline-offset-2 hover:text-red-900"
+              >
+                Try again
+              </button>
+            </div>
+          )}
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-600 text-sm">
@@ -91,9 +155,13 @@ export default function LoginPage() {
             <Button
               type="submit"
               className="w-full bg-[#5b8ab8] text-white font-semibold py-2 rounded hover:bg-[#4a738f]"
-              disabled={isLoading}
+              disabled={isLoading || waiting}
             >
-              {isLoading ? 'Logging in...' : 'Login'}
+              {isLoading ? 'Logging in...' : waiting ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Waiting for server…
+                </span>
+              ) : 'Login'}
             </Button>
           </form>
 
