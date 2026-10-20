@@ -14,6 +14,30 @@ type DispensePayload = {
   }>;
 };
 
+/** Thrown when the API can't be reached: offline, asleep, or still starting up. */
+export class ApiUnreachableError extends Error {
+  constructor() {
+    super(
+      "Can't reach the HMS server. The demo server sleeps when nobody has used it for a while and takes about a minute to wake up. Please wait a moment and try again."
+    );
+    this.name = 'ApiUnreachableError';
+  }
+}
+
+/** Resolves true when the API answers its health check within `timeoutMs`. */
+export async function pingApi(timeoutMs = 8000): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${API_BASE_URL}/health`, { cache: 'no-store', signal: controller.signal });
+    return response.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set('Content-Type', 'application/json');
@@ -26,7 +50,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       credentials: 'include'
     });
   } catch {
-    throw new Error('Cannot connect to the HMS API. Please start the API server on port 4000, then try again.');
+    throw new ApiUnreachableError();
+  }
+
+  // The hosting proxy answers 502/503/504 while the API is asleep or booting.
+  if ([502, 503, 504].includes(response.status)) {
+    throw new ApiUnreachableError();
   }
 
   if (!response.ok) {
