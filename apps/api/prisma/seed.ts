@@ -143,6 +143,49 @@ async function main() {
     });
   }
 
+  const wards = [
+    ['W001', 'ICU', 12, 11],
+    ['W002', 'Cardiology', 25, 21],
+    ['W003', 'General', 60, 46],
+    ['W004', 'Pediatrics', 24, 14],
+    ['W005', 'Maternity', 30, 14]
+  ] as const;
+
+  for (const [id, name, totalBeds, occupiedBeds] of wards) {
+    await prisma.ward.upsert({
+      where: { id },
+      update: { name, totalBeds, occupiedBeds },
+      create: { id, name, totalBeds, occupiedBeds }
+    });
+  }
+
+  // Six vitals readings per patient for the first five patients, oldest first, two hours apart.
+  const vitalsBase = [
+    ['P001', 76, 132, 84, 97, 36.7],
+    ['P002', 82, 118, 76, 98, 36.9],
+    ['P003', 71, 124, 80, 99, 36.6],
+    ['P004', 88, 140, 90, 96, 37.2],
+    ['P005', 74, 116, 74, 98, 36.8]
+  ] as const;
+  const readingOffsets = [0, 2, -1, 3, 1, 0];
+  const firstReading = new Date('2026-05-12T04:00:00Z');
+
+  for (const [patientId, heartRate, systolic, diastolic, spo2, temperatureC] of vitalsBase) {
+    const existing = await prisma.vital.count({ where: { patientId } });
+    if (existing > 0) continue;
+    await prisma.vital.createMany({
+      data: readingOffsets.map((offset, index) => ({
+        patientId,
+        heartRate: heartRate + offset * 2,
+        systolic: systolic + offset,
+        diastolic: diastolic + Math.round(offset / 2),
+        spo2,
+        temperatureC: Math.round((temperatureC + offset * 0.05) * 10) / 10,
+        recordedAt: new Date(firstReading.getTime() + index * 2 * 60 * 60 * 1000)
+      }))
+    });
+  }
+
   const invoices = [
     ['B001', 'P001', 'PAID', 'Consultation Fee - Cardiology', 1, 250000],
     ['B002', 'P004', 'UNPAID', 'Diabetes Review and Lab Advice', 1, 240000],

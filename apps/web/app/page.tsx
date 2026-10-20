@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { PharmacyWorkspace } from '@/components/pharmacy/pharmacy-workspace';
 import { PatientsWorkspace } from '@/components/patients/patients-workspace';
@@ -10,39 +10,75 @@ import { BillingWorkspace } from '@/components/billing/billing-workspace';
 import { ReportsWorkspace } from '@/components/reports/reports-workspace';
 import { UsersWorkspace } from '@/components/users/users-workspace';
 import { AnalyticsWorkspace } from '@/components/analytics/analytics-workspace';
-import { BarChart2, ClipboardList, FileText, LogOut, Pill, Shield, Stethoscope, Users } from 'lucide-react';
+import { DashboardWorkspace, initials } from '@/components/dashboard/dashboard-workspace';
+import { WardsWorkspace } from '@/components/wards/wards-workspace';
+import {
+  BarChart2,
+  BedDouble,
+  CalendarDays,
+  FileText,
+  LayoutDashboard,
+  LineChart,
+  LogOut,
+  Pill,
+  Search,
+  Shield,
+  Stethoscope,
+  Users
+} from 'lucide-react';
 import { hospitalApi } from '@/lib/api';
 
-type Section = 'patients' | 'doctors' | 'appointments' | 'pharmacy' | 'billing' | 'reports' | 'users' | 'analytics';
+type Section =
+  | 'dashboard'
+  | 'patients'
+  | 'doctors'
+  | 'appointments'
+  | 'wards'
+  | 'pharmacy'
+  | 'billing'
+  | 'reports'
+  | 'users'
+  | 'analytics';
 type UserRole = 'ADMIN' | 'DOCTOR' | 'RECEPTIONIST' | 'PHARMACIST' | 'STAFF';
 
 const ALL_NAV_ITEMS = [
-  { label: 'Patients',     icon: Users,        id: 'patients'     as Section, roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST', 'PHARMACIST'] },
-  { label: 'Doctors',      icon: Stethoscope,  id: 'doctors'      as Section, roles: ['ADMIN'] },
-  { label: 'Appointments', icon: ClipboardList, id: 'appointments' as Section, roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST', 'STAFF'] },
-  { label: 'Pharmacy',     icon: Pill,         id: 'pharmacy'     as Section, roles: ['ADMIN', 'PHARMACIST'] },
-  { label: 'Billing',      icon: FileText,     id: 'billing'      as Section, roles: ['ADMIN', 'RECEPTIONIST', 'PHARMACIST'] },
-  { label: 'Reports',      icon: ClipboardList, id: 'reports'     as Section, roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST', 'STAFF'] },
-  { label: 'Analytics',    icon: BarChart2,    id: 'analytics'    as Section, roles: ['ADMIN'] },
-  { label: 'Users',        icon: Shield,       id: 'users'        as Section, roles: ['ADMIN'] },
+  { label: 'Dashboard',    icon: LayoutDashboard, id: 'dashboard'    as Section, roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST', 'STAFF'] },
+  { label: 'Patients',     icon: Users,           id: 'patients'     as Section, roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST', 'PHARMACIST'] },
+  { label: 'Appointments', icon: CalendarDays,    id: 'appointments' as Section, roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST', 'STAFF'] },
+  { label: 'Wards & beds', icon: BedDouble,       id: 'wards'        as Section, roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST', 'STAFF'] },
+  { label: 'Doctors',      icon: Stethoscope,     id: 'doctors'      as Section, roles: ['ADMIN'] },
+  { label: 'Pharmacy',     icon: Pill,            id: 'pharmacy'     as Section, roles: ['ADMIN', 'PHARMACIST'] },
+  { label: 'Billing',      icon: FileText,        id: 'billing'      as Section, roles: ['ADMIN', 'RECEPTIONIST', 'PHARMACIST'] },
+  { label: 'Reports',      icon: LineChart,       id: 'reports'      as Section, roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST', 'STAFF'] },
+  { label: 'Analytics',    icon: BarChart2,       id: 'analytics'    as Section, roles: ['ADMIN'] },
+  { label: 'Users',        icon: Shield,          id: 'users'        as Section, roles: ['ADMIN'] },
 ];
 
+const CAN_CREATE_APPOINTMENTS: UserRole[] = ['ADMIN', 'DOCTOR', 'RECEPTIONIST', 'STAFF'];
+const CAN_EDIT_WARDS: UserRole[] = ['ADMIN', 'RECEPTIONIST', 'STAFF'];
+
 function getDefaultSection(role: UserRole): Section {
-  switch (role) {
-    case 'PHARMACIST': return 'pharmacy';
-    case 'DOCTOR':     return 'appointments';
-    case 'RECEPTIONIST': return 'appointments';
-    case 'STAFF':      return 'appointments';
-    default:           return 'patients';
-  }
+  return role === 'PHARMACIST' ? 'pharmacy' : 'dashboard';
+}
+
+function greeting(date = new Date()) {
+  const hour = date.getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
 }
 
 export default function Home() {
   const router = useRouter();
-  const [activeSection, setActiveSection] = useState<Section>('patients');
+  const [activeSection, setActiveSection] = useState<Section>('dashboard');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [userName, setUserName] = useState('Administrator');
   const [userRole, setUserRole] = useState<UserRole>('ADMIN');
+  const [search, setSearch] = useState('');
+  const [patientSearch, setPatientSearch] = useState('');
+  const [openNewAppointment, setOpenNewAppointment] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [viewKey, setViewKey] = useState(0);
 
   useEffect(() => {
     hospitalApi.me()
@@ -55,6 +91,11 @@ export default function Home() {
         if (typeof window !== 'undefined') {
           localStorage.setItem('userName', user.name);
           localStorage.setItem('userRole', user.role);
+        }
+        if (role !== 'PHARMACIST') {
+          hospitalApi.appointments()
+            .then((items) => setPendingCount(items.filter((a) => a.status === 'Pending').length))
+            .catch(() => setPendingCount(0));
         }
       })
       .catch(() => {
@@ -73,9 +114,21 @@ export default function Home() {
     router.push('/login');
   };
 
+  const go = (section: Section, options: { patientSearch?: string; newAppointment?: boolean } = {}) => {
+    setPatientSearch(options.patientSearch ?? '');
+    setOpenNewAppointment(Boolean(options.newAppointment));
+    setActiveSection(section);
+    setViewKey((k) => k + 1);
+  };
+
+  const submitSearch = (event: FormEvent) => {
+    event.preventDefault();
+    if (search.trim()) go('patients', { patientSearch: search.trim() });
+  };
+
   if (isAuthenticated === null) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex min-h-screen items-center justify-center bg-[#f5f7fa]">
         <div className="text-lg text-gray-600">Loading...</div>
       </div>
     );
@@ -84,12 +137,17 @@ export default function Home() {
   if (!isAuthenticated) return null;
 
   const navItems = ALL_NAV_ITEMS.filter(item => item.roles.includes(userRole));
+  const canSearchPatients = navItems.some((item) => item.id === 'patients');
+  const canCreateAppointment = CAN_CREATE_APPOINTMENTS.includes(userRole);
 
   const renderSection = () => {
     switch (activeSection) {
-      case 'patients':     return <PatientsWorkspace />;
+      case 'dashboard':
+        return <DashboardWorkspace onOpenAppointments={() => go('appointments')} onOpenWards={() => go('wards')} />;
+      case 'patients':     return <PatientsWorkspace initialSearch={patientSearch} />;
       case 'doctors':      return <DoctorsWorkspace />;
-      case 'appointments': return <AppointmentsWorkspace />;
+      case 'appointments': return <AppointmentsWorkspace openNew={openNewAppointment} />;
+      case 'wards':        return <WardsWorkspace canEdit={CAN_EDIT_WARDS.includes(userRole)} />;
       case 'pharmacy':     return <PharmacyWorkspace />;
       case 'billing':      return <BillingWorkspace />;
       case 'reports':      return <ReportsWorkspace />;
@@ -99,63 +157,74 @@ export default function Home() {
     }
   };
 
-  const roleLabel: Record<UserRole, string> = {
-    ADMIN: 'Admin',
-    DOCTOR: 'Doctor',
-    RECEPTIONIST: 'Receptionist',
-    PHARMACIST: 'Pharmacist',
-    STAFF: 'Staff',
-  };
+  const isDashboardStyled = activeSection === 'dashboard' || activeSection === 'wards';
+  const activeLabel = ALL_NAV_ITEMS.find((item) => item.id === activeSection)?.label ?? '';
+  const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  const title = activeSection === 'dashboard' ? `${greeting()}, ${userName}` : activeLabel;
+  const subtitle =
+    activeSection === 'dashboard'
+      ? `${today} · Outpatient & ward overview`
+      : `${today} · ZM Hospital Management System`;
 
   return (
-    <div className="min-h-screen bg-[#e9edf1]">
-      <header className="flex h-[76px] items-center justify-between border-b border-[#436f98] bg-[#5b8ab8] px-5 text-white">
-        <div className="flex items-center gap-4">
-          <div className="flex h-10 w-10 items-center justify-center border border-white/40 bg-white text-[11px] font-bold text-[#507fa9]">
-            HMS
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold tracking-normal">HMS</h1>
-            <p className="text-xs text-white/85">Hospital Management System</p>
-          </div>
-        </div>
-        <div className="text-sm font-semibold">
-          Welcome, {userName} &nbsp;·&nbsp; <span className="opacity-80">{roleLabel[userRole]}</span>
-        </div>
-      </header>
-
-      <div className="flex min-h-[calc(100vh-76px-36px)]">
-        <aside className="flex w-[220px] shrink-0 flex-col border-r border-[#222] bg-[#303030] text-white">
-          <nav className="flex-1 py-8">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActiveSection(item.id)}
-                className={`w-full flex h-12 items-center gap-3 px-6 text-[15px] font-semibold ${
-                  activeSection === item.id
-                    ? 'bg-[#5b8ab8] text-white border-l-2 border-white'
-                    : 'text-[#eeeeee] hover:bg-[#383838]'
-                }`}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </button>
-            ))}
-          </nav>
+    <div className="zm">
+      <aside className="zm-side">
+        <div className="zm-brand"><i>+</i>ZM HMS</div>
+        {navItems.map((item) => (
           <button
-            onClick={handleLogout}
-            className="flex h-14 items-center gap-3 px-6 text-[15px] font-semibold text-[#eeeeee] hover:bg-[#383838] w-full border-t border-[#444]"
+            key={item.id}
+            type="button"
+            onClick={() => go(item.id)}
+            className={`zm-nav${activeSection === item.id ? ' on' : ''}`}
+            aria-current={activeSection === item.id ? 'page' : undefined}
           >
-            <LogOut className="h-4 w-4" />
+            <item.icon strokeWidth={2} />
+            {item.label}
+            {item.id === 'appointments' && pendingCount > 0 && <span className="ct">{pendingCount}</span>}
+          </button>
+        ))}
+        <div className="zm-side-ft">
+          <button type="button" onClick={handleLogout} className="zm-nav">
+            <LogOut strokeWidth={2} />
             Logout
           </button>
-        </aside>
-        <main className="flex-1 overflow-auto p-4">{renderSection()}</main>
-      </div>
+          <small>{navItems.length} modules · v1.0</small>
+        </div>
+      </aside>
 
-      <footer className="border-t border-[#436f98] bg-[#5b8ab8] py-2 text-center text-xs text-white">
-        © 2026 HMS — Hospital Management System &nbsp;|&nbsp; All Rights Reserved
-      </footer>
+      <main className="zm-main">
+        <div className="zm-top">
+          <div>
+            <h1>{title}</h1>
+            <p>{subtitle}</p>
+          </div>
+          {canSearchPatients ? (
+            <form className="zm-search" onSubmit={submitSearch} role="search">
+              <Search strokeWidth={2} />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search patients, ID…"
+                aria-label="Search patients"
+              />
+            </form>
+          ) : (
+            <span style={{ marginLeft: 'auto' }} />
+          )}
+          {canCreateAppointment && (
+            <button type="button" className="zm-btn" onClick={() => go('appointments', { newAppointment: true })}>
+              + New appointment
+            </button>
+          )}
+          <span className="zm-doc" title={`${userName} · ${userRole.toLowerCase()}`}>{initials(userName) || 'ZM'}</span>
+        </div>
+
+        {isDashboardStyled ? (
+          <div key={viewKey} style={{ display: 'contents' }}>{renderSection()}</div>
+        ) : (
+          <div key={viewKey} className="zm-section">{renderSection()}</div>
+        )}
+      </main>
     </div>
   );
 }

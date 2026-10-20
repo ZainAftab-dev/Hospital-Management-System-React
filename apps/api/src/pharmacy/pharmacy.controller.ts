@@ -35,6 +35,12 @@ export class PharmacyController {
     return this.pharmacy.deleteMedicine(id);
   }
 
+  @Get('dispensations')
+  @Roles(Role.ADMIN, Role.DOCTOR, Role.PHARMACIST)
+  listDispensations(@Query('patientId') patientId?: string, @Query('take') take?: string) {
+    return this.pharmacy.listDispensations({ patientId, take: Number(take) || 10 });
+  }
+
   @Post('dispense')
   @Roles(Role.ADMIN, Role.PHARMACIST)
   dispense(@Body() body: DispenseMedicineDto, @Req() request: { user: { id: string } }) {

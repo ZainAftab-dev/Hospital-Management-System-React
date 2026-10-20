@@ -9,6 +9,8 @@ import { HealthController } from './health.controller';
 import { PatientsModule } from './patients/patients.module';
 import { PharmacyModule } from './pharmacy/pharmacy.module';
 import { UsersModule } from './users/users.module';
+import { VitalsModule } from './vitals/vitals.module';
+import { WardsModule } from './wards/wards.module';
 
 @Module({
   imports: [
@@ -19,7 +21,9 @@ import { UsersModule } from './users/users.module';
     AppointmentsModule,
     PharmacyModule,
     BillingModule,
-    UsersModule
+    UsersModule,
+    WardsModule,
+    VitalsModule
   ],
   controllers: [HealthController],
   providers: [PrismaService],

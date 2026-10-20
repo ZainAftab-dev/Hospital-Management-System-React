@@ -44,7 +44,9 @@ Two ways to run it:
 
 | Module | Capabilities |
 |--------|--------------|
-| 🧑‍⚕️ **Patients** | Full registration, medical details, blood group, allergies, emergency contacts, search |
+| 🩺 **Dashboard** | Role-aware home screen: patient, appointment, bed-occupancy and revenue KPIs, today's schedule, ward occupancy bars, weekly appointment chart, and a patient spotlight with latest vitals and prescription |
+| 🛏️ **Wards & beds** | Ward capacity and live occupancy, colour-coded by load, with admit / discharge controls |
+| 🧑‍⚕️ **Patients** | Full registration, medical details, blood group, allergies, emergency contacts, search, vitals history (`/patients/:id/vitals`) |
 | 👨‍⚕️ **Doctors** | Profiles, specializations, qualifications, availability, consultation fees |
 | 📅 **Appointments** | Scheduling, status tracking (Pending / Confirmed / Completed / Cancelled), reschedule & cancel |
 | 💊 **Pharmacy** | Medicine inventory, low-stock alerts, prescription **dispensing with automatic stock deduction** |
