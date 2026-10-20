@@ -99,3 +99,35 @@ export type Appointment = {
   type?: string;
   notes?: string;
 };
+
+export type Ward = {
+  id: string;
+  name: string;
+  totalBeds: number;
+  occupiedBeds: number;
+};
+
+export type Vital = {
+  id: string;
+  patientId: string;
+  heartRate: number;
+  systolic: number;
+  diastolic: number;
+  spo2: number;
+  temperatureC: number;
+  recordedAt: string;
+};
+
+export type Dispensation = {
+  id: string;
+  patientId: string;
+  createdAt: string;
+  items: Array<{
+    id: string;
+    quantity: number;
+    dosage: string;
+    frequency: string;
+    duration: string;
+    medicine: { id: string; name: string; unit?: string | null };
+  }>;
+};

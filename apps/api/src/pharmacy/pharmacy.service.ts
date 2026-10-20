@@ -7,6 +7,15 @@ import { DispenseMedicineDto, UpsertMedicineDto } from './dto';
 export class PharmacyService {
   constructor(private readonly prisma: PrismaService) {}
 
+  listDispensations(filters: { patientId?: string; take: number }) {
+    return this.prisma.dispensation.findMany({
+      where: filters.patientId ? { patientId: filters.patientId } : undefined,
+      orderBy: { createdAt: 'desc' },
+      take: Math.min(Math.max(filters.take, 1), 100),
+      include: { items: { include: { medicine: { select: { id: true, name: true, unit: true } } } } }
+    });
+  }
+
   listMedicines(filters: { search?: string; category?: string }) {
     const where: Prisma.MedicineWhereInput = {};
     if (filters.search) {

@@ -1,4 +1,4 @@
-import type { Appointment, Doctor, HospitalUser, Invoice, Medicine, Patient } from '@/types/hospital';
+import type { Appointment, Dispensation, Doctor, HospitalUser, Invoice, Medicine, Patient, Vital, Ward } from '@/types/hospital';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api';
 
@@ -310,5 +310,22 @@ export const hospitalApi = {
     request<{ dispensation: unknown; invoice: ApiInvoice }>('/pharmacy/dispense', {
       method: 'POST',
       body: JSON.stringify(payload)
-    }).then((result) => ({ ...result, invoice: invoiceFromApi(result.invoice) }))
+    }).then((result) => ({ ...result, invoice: invoiceFromApi(result.invoice) })),
+  wards: () => request<Ward[]>('/wards'),
+  updateWardOccupancy: (id: string, occupiedBeds: number) =>
+    request<Ward>(`/wards/${id}/occupancy`, {
+      method: 'PATCH',
+      body: JSON.stringify({ occupiedBeds })
+    }),
+  vitals: (patientId: string, take = 12) => request<Vital[]>(`/patients/${encodeURIComponent(patientId)}/vitals?take=${take}`),
+  recordVital: (patientId: string, vital: Omit<Vital, 'id' | 'patientId' | 'recordedAt'>) =>
+    request<Vital>(`/patients/${encodeURIComponent(patientId)}/vitals`, {
+      method: 'POST',
+      body: JSON.stringify(vital)
+    }),
+  dispensations: (patientId?: string, take = 5) => {
+    const query = new URLSearchParams({ take: String(take) });
+    if (patientId) query.set('patientId', patientId);
+    return request<Dispensation[]>(`/pharmacy/dispensations?${query}`);
+  }
 };

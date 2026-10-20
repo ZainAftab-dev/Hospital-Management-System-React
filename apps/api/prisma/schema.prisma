@@ -40,6 +40,7 @@ model Patient {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   appointments     Appointment[]
+  vitals           Vital[]
 }
 
 model Doctor {
@@ -145,4 +146,28 @@ model DispensationItem {
   duration       String       @db.NVarChar(100)
   unitPriceCents Int
   lineTotalCents Int
+}
+
+model Ward {
+  id           String   @id @db.NVarChar(191)
+  name         String   @unique @db.NVarChar(191)
+  totalBeds    Int
+  occupiedBeds Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Vital {
+  id               String   @id @default(cuid()) @db.NVarChar(191)
+  patientId        String   @db.NVarChar(191)
+  patient          Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  heartRate        Int
+  systolic         Int
+  diastolic        Int
+  spo2             Int
+  temperatureC     Float
+  recordedById     String?  @db.NVarChar(191)
+  recordedAt       DateTime @default(now())
+
+  @@index([patientId, recordedAt])
 }

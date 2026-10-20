@@ -167,13 +167,13 @@ function PatientForm({
   );
 }
 
-export function PatientsWorkspace() {
+export function PatientsWorkspace({ initialSearch = '' }: { initialSearch?: string } = {}) {
   const [patients, setPatients] = useState<Patient[]>(initialPatients);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(initialSearch);
   const [genderFilter, setGenderFilter] = useState('All');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);

@@ -32,7 +32,7 @@ function typeBadge(type?: string) {
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
-export function AppointmentsWorkspace() {
+export function AppointmentsWorkspace({ openNew = false }: { openNew?: boolean } = {}) {
   const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
   const [patients, setPatients] = useState<Patient[]>(initialPatients);
   const [doctors, setDoctors] = useState<Doctor[]>(initialDoctors);
@@ -42,7 +42,7 @@ export function AppointmentsWorkspace() {
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(openNew);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<Appointment>>({});
   const [formError, setFormError] = useState('');
